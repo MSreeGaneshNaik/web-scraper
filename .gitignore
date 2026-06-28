@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+
+# Editor / tooling
+.claude/
+.idea/
+.vscode/
+
+# Runtime logs
+server.log
+*.log
+
+# Scraper output files
+output.json
+output.md
+output-contacts.csv
+*-contacts.csv
+scrape-*.json
+scrape-*.md
