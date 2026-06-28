@@ -182,6 +182,26 @@
     transition: transform .15s, box-shadow .15s; }
   .page:hover { transform: translateY(-2px);
     box-shadow: 0 2px 4px rgba(40,30,20,.05), 0 14px 30px rgba(40,30,20,.09); }
+  /* Per-page results: user-selectable column layout (rows as needed). */
+  #pages { display: grid; gap: 13px; align-items: start; grid-template-columns: 1fr; }
+  #pages.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  #pages.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  #pages .page { margin-bottom: 0; }
+  @media (max-width: 640px) {
+    #pages.cols-2, #pages.cols-3 { grid-template-columns: 1fr; }
+  }
+
+  /* Section header with a layout toggle on the right. */
+  .section-head { display: flex; align-items: center; justify-content: space-between;
+    margin: 26px 2px 12px; }
+  .section-head .section-title { margin: 0; }
+  .layout-toggle { display: flex; gap: 4px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+  .layout-toggle button { background: transparent; border: none; color: var(--muted);
+    font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 6px;
+    cursor: pointer; transition: background .15s, color .15s; }
+  .layout-toggle button:hover { color: var(--text); }
+  .layout-toggle button.active { background: var(--accent); color: #fff; }
   .page .idx { color: var(--faint); font-size: 13px; font-weight: 600; }
   .page h3 { margin: 2px 0 4px; font-size: 17px; font-weight: 600;
     font-family: Georgia, serif; }
@@ -267,8 +287,15 @@
       <a href="/download/contacts" id="dlContacts"><button class="btn-sec">⬇ Contacts (CSV)</button></a>
     </div>
     <div id="extras"></div>
-    <div class="section-title">Pages</div>
-    <div id="pages"></div>
+    <div class="section-head">
+      <div class="section-title">Pages</div>
+      <div class="layout-toggle" id="layoutToggle">
+        <button data-cols="1">List</button>
+        <button data-cols="2">2 cols</button>
+        <button data-cols="3">3 cols</button>
+      </div>
+    </div>
+    <div id="pages" class="cols-2"></div>
   </div>
 </div>
 
@@ -511,6 +538,17 @@ goBtn.addEventListener("click",scrape);
 stopBtn.addEventListener("click",stopScrape);
 $("url").addEventListener("keydown",e=>{if(e.key==="Enter")scrape();});
 $("allPages").addEventListener("change",e=>{ $("maxPages").disabled=e.target.checked; });
+
+// Page-layout toggle (List / 2 cols / 3 cols), remembered across runs.
+function setLayout(cols){
+  $("pages").className = "cols-" + cols;
+  document.querySelectorAll("#layoutToggle button").forEach(b=>
+    b.classList.toggle("active", b.dataset.cols === String(cols)));
+  try{ localStorage.setItem("pagesCols", cols); }catch(e){}
+}
+document.querySelectorAll("#layoutToggle button").forEach(b=>
+  b.addEventListener("click", ()=>setLayout(b.dataset.cols)));
+setLayout((()=>{ try{ return localStorage.getItem("pagesCols") || "2"; }catch(e){ return "2"; } })());
 </script>
 </body>
 </html>
