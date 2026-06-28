@@ -246,6 +246,11 @@ Other speedups: pooled keep-alive connections, automatic retries, parallel docum
 extraction, and fetching robots.txt only once (shared by the rules parser and
 sitemap discovery).
 
+**Reliability under load:** a per-host rate limiter honors robots `Crawl-delay`
+and applies adaptive backoff on `429`/`503` (widen spacing, then relax), so high
+worker counts drop fewer pages. Identical page content reached via different URLs
+is de-duplicated by content hash.
+
 ---
 
 ## 8. Dependencies (all free / OSS)
@@ -308,18 +313,21 @@ A lean-code audit flagged redundancy; status:
 ### Known gaps for production use
 1. **Memory & scale** — every page's full data is held in RAM, then serialized to
    one large JSON. Big crawls (thousands of pages) can balloon memory; there is no
-   streaming to disk.
+   streaming to disk yet. *(Deliberately deferred — it changes the data-flow and
+   download path, so it's tracked in Tier 1 rather than bundled with the
+   non-affecting improvements.)*
 2. **No persistence** — results live in memory (`LAST`); a restart loses them and
    only the most recent crawl is downloadable.
 3. **Single job / single user** — one crawl at a time (`409` otherwise).
 4. **Security (SSRF)** — it will fetch any URL, including `localhost`, internal IPs,
    and cloud metadata endpoints. Must be locked down before exposing to others.
-5. **No per-domain rate limiting** — high concurrency can trigger throttling/bans
-   that silently drop pages.
-6. **Not a production server** — Flask dev server, single process, no auth.
-7. **No tests** — no regression safety net.
-8. **Robustness edges** — no max-response-size guard, no content-hash dedup of
-   near-duplicate pages, basic encoding handling.
+5. **Not a production server** — Flask dev server, single process, no auth.
+6. **No tests** — no regression safety net.
+7. **Robustness edges** — no max-response-size guard; basic encoding handling.
+
+*Addressed since the first assessment:* per-host **rate limiting + adaptive
+backoff** (honors `Crawl-delay`) and **content-hash de-duplication** are now built
+(see §4 / §7).
 
 ---
 
