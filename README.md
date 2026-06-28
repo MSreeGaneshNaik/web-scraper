@@ -119,12 +119,18 @@ python -m webscraper.scraper https://example.com --ignore-robots --out mysite
 | `--screenshots` | off | Capture a screenshot of each rendered page |
 | `--no-docs` | off | Don't extract text from PDF/Word/Excel |
 
-## 🚀 Speed
+## 🚀 Speed & reliability
 
-Parallel fetching makes it ~3–4× faster than sequential. **8–16 workers** is the
-sweet spot for speed *and* completeness; more can trigger server throttling and
-drop pages. JS rendering runs single-threaded by design. See `docs/document.md` for
-benchmarks and details.
+- ⚡ **Parallel fetching** — ~3–4× faster than sequential. **8–16 workers** is the
+  sweet spot for speed *and* completeness. JS rendering runs single-threaded by design.
+- 🔌 **Connection pooling + auto-retries** for transient failures.
+- 🚦 **Per-host rate limiting + adaptive backoff** — honors robots `Crawl-delay` and
+  automatically eases off when a server returns `429`/`503`, so high worker counts
+  drop fewer pages.
+- 🧬 **Content de-duplication** — identical pages reached via different URLs are
+  detected (content hash) and skipped.
+
+See `docs/document.md` for benchmarks and the full roadmap.
 
 ## 📌 Notes
 
