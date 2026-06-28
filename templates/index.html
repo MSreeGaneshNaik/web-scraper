@@ -158,7 +158,12 @@
   .err { color: #b3402a; }
 
   /* ---- Results ---- */
-  #results { margin-top: 30px; animation: rise .5s ease both; }
+  /* Results break out of the centered column to use 80% of the page width. */
+  #results { margin-top: 30px; animation: rise .5s ease both;
+    width: 80vw; position: relative; left: 50%; margin-left: -40vw; }
+  @media (max-width: 1000px) {
+    #results { width: auto; left: auto; margin-left: 0; }
+  }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
     color: var(--faint); margin: 26px 2px 12px; font-weight: 600; }
