@@ -18,7 +18,7 @@ It runs two ways:
 
 - **Web UI** — a minimalist single-page site (Claude-themed, animated background)
   at `http://127.0.0.1:8000`, with a live progress bar and a Stop button.
-- **Command line** — `python scraper.py <url>` for scripting and automation.
+- **Command line** — `python -m webscraper.scraper <url>` for scripting and automation.
 
 Everything in the project is **free and open-source**. No API keys, no accounts,
 no paid services or tiers.
@@ -49,22 +49,26 @@ no paid services or tiers.
 ## 3. Architecture & files
 
 ```
-Web Scraper Project/
-├── scraper.py          # crawl engine + extraction + report builder + CLI
-├── app.py              # Flask web server (UI + JSON API + progress/stop + downloads)
+web-scraper/
+├── app.py                  # Flask web server (UI + JSON API + progress/stop + downloads)
+├── webscraper/             # the scraping engine (Python package)
+│   ├── __init__.py         # public API: crawl, build_report, contacts_csv, same_domain
+│   ├── scraper.py          # crawl loop + extraction + report builder + CLI
+│   ├── documents.py        # PDF / Word / Excel text extraction
+│   └── render.py           # headless-browser rendering (Playwright)
 ├── templates/
-│   └── index.html      # the single-page UI (Claude theme, animated bg, progress, stop)
-├── render.py           # headless-browser rendering (Playwright)
-├── documents.py        # PDF / Word / Excel text extraction
-├── requirements.txt    # dependencies
-├── README.md           # quick-start usage
-└── document.md         # this file
+│   └── index.html          # the single-page UI (Claude theme, animated bg, progress, stop)
+├── docs/
+│   └── document.md         # this file
+├── requirements.txt        # dependencies
+├── LICENSE                 # MIT
+└── README.md               # quick-start usage
 ```
 
 **Data flow**
 
 ```
-URL ─▶ crawl()                                   (scraper.py)
+URL ─▶ crawl()                              (webscraper/scraper.py)
         ├─ fetch robots.txt ONCE → build rules + discover sitemaps
         ├─ seed queue from sitemap (even unlinked pages)
         ├─ CONCURRENT wave loop (ThreadPoolExecutor, continuous dispatch):
@@ -167,14 +171,14 @@ Ignore robots.txt · Render JS (browser) · Screenshots.
 
 ### Command line
 ```bash
-python scraper.py https://example.com                       # crawl, default 50 pages
-python scraper.py https://example.com --max-pages 500 --workers 16
-python scraper.py https://example.com --no-crawl            # single page only
-python scraper.py https://example.com --ignore-robots       # crawl everything
-python scraper.py https://example.com --render --screenshots
-python scraper.py https://example.com --workers 1 --delay 0.5   # slow & polite
-python scraper.py https://example.com --no-docs             # skip PDF/Office text
-python scraper.py https://example.com --out mysite          # mysite.json + mysite.md
+python -m webscraper.scraper https://example.com                       # crawl, default 50 pages
+python -m webscraper.scraper https://example.com --max-pages 500 --workers 16
+python -m webscraper.scraper https://example.com --no-crawl            # single page only
+python -m webscraper.scraper https://example.com --ignore-robots       # crawl everything
+python -m webscraper.scraper https://example.com --render --screenshots
+python -m webscraper.scraper https://example.com --workers 1 --delay 0.5   # slow & polite
+python -m webscraper.scraper https://example.com --no-docs             # skip PDF/Office text
+python -m webscraper.scraper https://example.com --out mysite          # mysite.json + mysite.md
 ```
 
 ### CLI options
