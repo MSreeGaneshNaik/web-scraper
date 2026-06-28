@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, render_template, request, jsonify, send_file
 
-from scraper import crawl, build_report, same_domain, contacts_csv
+from webscraper import crawl, build_report, same_domain, contacts_csv
 
 app = Flask(__name__)
 

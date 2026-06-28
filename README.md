@@ -39,6 +39,25 @@ or pass `--ignore-robots` (CLI) to crawl everything regardless.
 capture background API calls, take screenshots, and extract text from PDF/Word/
 Excel files.
 
+## Project structure
+
+```
+web-scraper/
+├── app.py                 # Flask web app (entry point for the UI)
+├── webscraper/            # the scraping engine (package)
+│   ├── __init__.py        # public API: crawl, build_report, contacts_csv
+│   ├── scraper.py         # crawl loop, extraction, report + CLI
+│   ├── documents.py       # PDF / Word / Excel text extraction
+│   └── render.py          # headless-browser rendering (Playwright)
+├── templates/
+│   └── index.html         # the single-page UI
+├── docs/
+│   └── document.md        # full project documentation
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
+
 ## Setup
 
 ```bash
@@ -67,22 +86,22 @@ site · Ignore robots.txt · Render JS · Screenshots.
 
 ```bash
 # Crawl a whole site (default: 50 pages, 8 parallel fetchers)
-python scraper.py https://example.com
+python -m webscraper.scraper https://example.com
 
 # Faster / bigger
-python scraper.py https://example.com --max-pages 500 --workers 16
+python -m webscraper.scraper https://example.com --max-pages 500 --workers 16
 
 # Single page only
-python scraper.py https://example.com --no-crawl
+python -m webscraper.scraper https://example.com --no-crawl
 
 # Slow & polite (delay only applies with 1 worker)
-python scraper.py https://example.com --workers 1 --delay 0.5
+python -m webscraper.scraper https://example.com --workers 1 --delay 0.5
 
 # Render JavaScript sites + screenshots
-python scraper.py https://example.com --render --screenshots
+python -m webscraper.scraper https://example.com --render --screenshots
 
 # Ignore robots.txt (use responsibly) / custom output name
-python scraper.py https://example.com --ignore-robots --out mysite
+python -m webscraper.scraper https://example.com --ignore-robots --out mysite
 ```
 
 ## Options
@@ -103,7 +122,7 @@ python scraper.py https://example.com --ignore-robots --out mysite
 
 Parallel fetching makes it ~3–4× faster than sequential. **8–16 workers** is the
 sweet spot for speed *and* completeness; more can trigger server throttling and
-drop pages. JS rendering runs single-threaded by design. See `document.md` for
+drop pages. JS rendering runs single-threaded by design. See `docs/document.md` for
 benchmarks and details.
 
 ## Notes
@@ -111,4 +130,4 @@ benchmarks and details.
 - Stays on the same domain (treats `www` and non-`www` as the same site).
 - Respects `robots.txt` by default (fetched once, reused for rules + sitemaps).
 - Be considerate: don't hammer sites you don't own; lower `--workers` / add delay.
-- Full project documentation lives in **`document.md`**.
+- Full project documentation lives in **`docs/document.md`**.

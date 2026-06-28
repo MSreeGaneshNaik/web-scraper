@@ -39,8 +39,8 @@ except ImportError:
         "    pip install -r requirements.txt"
     )
 
-from documents import extract_document
-from render import RenderSession, is_available as render_available
+from .documents import extract_document
+from .render import RenderSession, is_available as render_available
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; SiteScraper/1.0; +https://example.com/bot)"
