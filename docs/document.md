@@ -143,6 +143,11 @@ contact came from.
   workers busy). ~3–4× faster than sequential.
 - **Connection pooling + retries** — reused keep-alive connections; transient
   failures retried automatically.
+- **Per-host rate limiting + adaptive backoff** — honors robots `Crawl-delay`;
+  widens spacing automatically when a host returns `429`/`503` (then relaxes),
+  so high concurrency drops fewer pages.
+- **Content de-duplication** — identical page content reached via different URLs
+  is detected (content hash) and skipped, keeping the output clean.
 - **Live progress bar** — shows the discovery phase, then real page counts, fills to
   100%, then disappears.
 - **"All pages"** — crawl the entire site (no fixed page cap); the total resolves to
@@ -321,12 +326,15 @@ A lean-code audit flagged redundancy; status:
 ## 12. Future scope (prioritized roadmap)
 
 ### Tier 1 — robust & safe (highest impact)
+- ✅ **Per-domain rate limiter + adaptive backoff** on `429`/`503`; honors robots
+  `Crawl-delay`. *(Done — see §4 "Speed, progress & control".)*
+- ✅ **Content-hash de-duplication** — identical page content reached via different
+  URLs is detected and skipped. *(Done.)*
 - **Stream results to disk** (NDJSON per page + a SQLite index) instead of holding
   everything in RAM → crawl huge sites without running out of memory; enables resume.
 - **SSRF guard** — block private/loopback/link-local IPs, cloud-metadata hosts, and
   non-`http(s)` schemes by default.
-- **Per-domain rate limiter + adaptive backoff** on `429`/`503`; honor `Crawl-delay`.
-- **Response-size cap** and **content-hash de-duplication** of near-identical pages.
+- **Response-size cap** for very large files.
 
 ### Tier 2 — make it a real service
 - **Job queue with IDs** — multiple/concurrent crawls, each tracked and downloadable.
