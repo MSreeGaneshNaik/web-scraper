@@ -18,11 +18,13 @@ Respects robots.txt by default (use --ignore-robots to override).
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
 import re
 import sys
+import threading
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -485,6 +487,46 @@ def parse_sitemap(session, url, seen=None, depth=0):
     return urls
 
 
+class RateLimiter:
+    """Per-host request spacing with adaptive backoff.
+
+    Keeps a minimum interval between requests to each host (e.g. from
+    robots.txt Crawl-delay). When a host returns 429/503 it widens that
+    host's interval (exponential backoff); successes slowly relax it.
+    Thread-safe: workers call wait() before each request.
+    """
+
+    def __init__(self, base_interval=0.0, max_penalty=30.0):
+        self.base = base_interval
+        self.max_penalty = max_penalty
+        self._lock = threading.Lock()
+        self._next = {}       # host -> earliest next allowed timestamp
+        self._penalty = {}    # host -> extra seconds added by backoff
+
+    def wait(self, host):
+        with self._lock:
+            now = time.time()
+            interval = self.base + self._penalty.get(host, 0.0)
+            start_at = max(now, self._next.get(host, 0.0))
+            self._next[host] = start_at + interval
+        delay = start_at - time.time()
+        if delay > 0:
+            time.sleep(delay)
+
+    def penalize(self, host):
+        with self._lock:
+            cur = self._penalty.get(host, 0.0)
+            self._penalty[host] = min(cur * 2 if cur else 0.5, self.max_penalty)
+            return self._penalty[host]
+
+    def relax(self, host):
+        with self._lock:
+            if host in self._penalty:
+                self._penalty[host] *= 0.5
+                if self._penalty[host] < 0.1:
+                    del self._penalty[host]
+
+
 def crawl(start_url, max_pages, delay, crawl_site, ignore_robots,
           use_sitemap=True, render=False, screenshots=False,
           extract_docs=True, max_docs=20, progress_cb=None, workers=8,
@@ -514,6 +556,7 @@ def crawl(start_url, max_pages, delay, crawl_site, ignore_robots,
     resources = {}        # category -> set of URLs (every file we spotted)
     text_files = []       # readable non-HTML files we fetched (robots, .txt, .xml…)
     screenshots_out = []  # {url, image(base64 png)} when screenshots are on
+    content_hashes = set()  # for de-duplicating identical page content
 
     # Optional headless browser for JavaScript rendering.
     renderer = None
@@ -531,6 +574,20 @@ def crawl(start_url, max_pages, delay, crawl_site, ignore_robots,
         progress_cb(0, 0, "Reading robots.txt & sitemaps…")
     robots_txt, sitemap_urls = fetch_robots_and_sitemaps(session, start_url)
     rp = build_robots(robots_txt, ignore_robots)
+
+    # Per-host rate limiter. Honor robots.txt Crawl-delay (capped) if present;
+    # otherwise no artificial spacing — adaptive backoff still kicks in on 429/503.
+    crawl_delay = 0.0
+    if rp is not None:
+        try:
+            cd = rp.crawl_delay(USER_AGENT)
+            if cd:
+                crawl_delay = min(float(cd), 10.0)
+        except Exception:
+            crawl_delay = 0.0
+    limiter = RateLimiter(base_interval=crawl_delay)
+    if crawl_delay:
+        log(f"[rate] honoring robots Crawl-delay: {crawl_delay}s per host")
 
     # 2) Seed the queue with every page the sitemap publishes (even unlinked ones).
     sitemaps_info = []
@@ -569,12 +626,25 @@ def crawl(start_url, max_pages, delay, crawl_site, ignore_robots,
     def fetch_one(url):
         """Fetch (and for static pages, parse) one URL. No shared state — safe
         to run in a worker thread. Returns a result dict for ingest()."""
-        try:
-            t0 = time.time()
-            resp = session.get(url, timeout=20, allow_redirects=True)
-            elapsed = time.time() - t0
-        except requests.RequestException as e:
-            return {"kind": "error", "url": url, "error": str(e)}
+        host = urlparse(url).netloc
+        resp = None
+        # Up to 3 attempts, honoring per-host spacing and backing off on 429/503.
+        for attempt in range(3):
+            limiter.wait(host)
+            try:
+                t0 = time.time()
+                resp = session.get(url, timeout=20, allow_redirects=True)
+                elapsed = time.time() - t0
+            except requests.RequestException as e:
+                return {"kind": "error", "url": url, "error": str(e)}
+            if resp.status_code in (429, 503) and attempt < 2:
+                pen = limiter.penalize(host)
+                log(f"[rate] {resp.status_code} from {host}; backing off "
+                    f"{pen:.1f}s (attempt {attempt + 1})")
+                time.sleep(pen)
+                continue
+            break
+        limiter.relax(host)
 
         ctype = resp.headers.get("Content-Type", "")
         if "html" not in ctype.lower():
@@ -622,6 +692,14 @@ def crawl(start_url, max_pages, delay, crawl_site, ignore_robots,
                            "error": f"non-HTML ({r['content_type']})"})
             return
         page = r["page"]
+        # De-duplicate identical page content reached via different URLs.
+        # Only for substantial pages, so distinct thin pages aren't collapsed.
+        if page["word_count"] > 50:
+            h = hashlib.md5(page["text"].encode("utf-8", "ignore")).hexdigest()
+            if h in content_hashes:
+                log(f"[dup] identical content, skipped {page['url']}")
+                return
+            content_hashes.add(h)
         pages.append(page)
         log(f"[{len(pages)}/{max_pages}] {page['status_code']} {page['url']}")
         for link in page["links"]:
