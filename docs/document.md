@@ -161,6 +161,21 @@ contact came from.
 
 ## 5. Usage
 
+### Running it again (quick start)
+Once it's been set up, starting it again is just:
+```bash
+cd "/Applications/Documents/Web Scraper Project"
+python app.py
+```
+Then open **http://127.0.0.1:8000** in your browser. Press **Ctrl+C** in the
+terminal to stop the server when you're done.
+
+> First time only (or after `git clone`): install dependencies first —
+> `pip install -r requirements.txt` (and `python -m playwright install chromium`
+> if you want JavaScript rendering).
+>
+> If port 8000 is busy, run on another port: `PORT=8080 python app.py`.
+
 ### Web UI
 ```bash
 pip install -r requirements.txt
