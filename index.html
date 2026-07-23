@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Scraper — Crawl any site & extract everything</title>
+<meta name="description" content="Give it a URL and it crawls the whole site, extracting text, links, images, tables, forms, contacts, tech fingerprint and more. Python + Flask.">
+<style>
+  /* ---- Claude colour palette (matches the real app) ---- */
+  :root {
+    --bg:        #F5F4EE;
+    --bg-2:      #EDE9DD;
+    --card:      #FBFAF6;
+    --card-2:    #FFFFFF;
+    --border:    #E3DECF;
+    --text:      #211F1A;
+    --muted:     #6F6A5C;
+    --faint:     #9A9485;
+    --accent:    #CC785C;
+    --accent-2:  #D9A38A;
+    --accent-deep:#B5613F;
+    --shadow:    0 1px 2px rgba(40,30,20,.04), 0 8px 24px rgba(40,30,20,.06);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ---- Animated background (same drifting blobs as the app) ---- */
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; will-change: transform; }
+  .blob.b1 { width: 46vw; height: 46vw; left: -8vw; top: -10vw;
+    background: radial-gradient(circle at 30% 30%, var(--accent-2), transparent 70%); animation: drift1 26s ease-in-out infinite; }
+  .blob.b2 { width: 40vw; height: 40vw; right: -6vw; top: 8vw;
+    background: radial-gradient(circle at 50% 50%, #E7C8A0, transparent 70%); animation: drift2 32s ease-in-out infinite; }
+  .blob.b3 { width: 48vw; height: 48vw; left: 18vw; bottom: -18vw;
+    background: radial-gradient(circle at 50% 50%, var(--accent), transparent 72%); opacity: .32; animation: drift3 38s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(6vw,4vw) scale(1.12)} 66%{transform:translate(3vw,8vw) scale(.96)} }
+  @keyframes drift2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-5vw,6vw) scale(1.08)} 66%{transform:translate(-8vw,2vw) scale(1.16)} }
+  @keyframes drift3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(4vw,-5vw) scale(1.15)} }
+  @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 64px 22px 96px; }
+
+  /* ---- Brand / hero ---- */
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(204,120,92,.16); }
+  .brand span.name { font-weight: 700; letter-spacing: .2px; }
+  h1 { font-size: clamp(2.1rem, 5vw, 3.3rem); line-height: 1.08; margin: 0 0 14px; letter-spacing: -.5px; }
+  h1 .hl { color: var(--accent-deep); }
+  .lede { font-size: 1.18rem; color: var(--muted); max-width: 620px; margin: 0 0 28px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 12px;
+    font-weight: 600; font-size: .98rem; text-decoration: none; border: 1px solid transparent; transition: .15s; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-deep); }
+  .btn.ghost { background: var(--card-2); color: var(--text); border-color: var(--border); }
+  .btn.ghost:hover { border-color: var(--accent-2); }
+  .note { font-size: .86rem; color: var(--faint); margin-top: 2px; }
+
+  /* ---- Mock app card ---- */
+  .mock { margin: 46px 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 26px; box-shadow: var(--shadow); }
+  .mock .titlebar { display:flex; align-items:center; gap:11px; margin-bottom: 18px; }
+  .mock h3 { margin: 0; font-size: 1.1rem; }
+  .searchrow { display: flex; gap: 10px; margin-bottom: 14px; }
+  .searchrow input { flex: 1; padding: 13px 15px; border-radius: 11px; border: 1px solid var(--border);
+    background: var(--card-2); color: var(--text); font-size: 1rem; }
+  .searchrow input:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(204,120,92,.12); }
+  .go { padding: 13px 22px; border-radius: 11px; border: none; background: var(--accent); color:#fff; font-weight: 600; cursor: pointer; }
+  .go:hover { background: var(--accent-deep); }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .84rem; color: var(--muted); }
+  .opts label { display: inline-flex; align-items: center; gap: 5px; }
+  .opts input[type=checkbox]{ accent-color: var(--accent); }
+
+  /* results preview inside mock */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
+  .stat { background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat .n { font-size: 1.5rem; font-weight: 700; color: var(--accent-deep); }
+  .stat .l { font-size: .74rem; color: var(--faint); text-transform: uppercase; letter-spacing: .5px; }
+  .hint { margin-top: 16px; font-size: .82rem; color: var(--faint); text-align: center; }
+
+  /* ---- Features ---- */
+  h2 { font-size: 1.7rem; margin: 60px 0 8px; letter-spacing: -.3px; }
+  .sub { color: var(--muted); margin: 0 0 26px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .feat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .feat .ic { font-size: 1.4rem; }
+  .feat h4 { margin: 8px 0 5px; font-size: 1rem; }
+  .feat p { margin: 0; font-size: .89rem; color: var(--muted); }
+
+  /* ---- Run locally ---- */
+  pre { background: #211F1A; color: #F5F4EE; padding: 18px 20px; border-radius: 14px; overflow-x: auto;
+    font-size: .88rem; line-height: 1.7; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre .c { color: var(--accent-2); }
+
+  footer { margin-top: 70px; padding-top: 26px; border-top: 1px solid var(--border); color: var(--faint); font-size: .86rem; }
+  footer a { color: var(--accent-deep); }
+  @media (max-width: 560px){ .stats{ grid-template-columns: repeat(2,1fr);} .searchrow{flex-direction:column;} }
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<div class="wrap">
+
+  <div class="brand"><span class="dot"></span><span class="name">Web Scraper</span></div>
+
+  <h1>Point it at a website.<br>Get <span class="hl">everything</span> back.</h1>
+  <p class="lede">A Python crawler that walks an entire site — following internal links — and
+     extracts text, links, images, tables, forms, contacts, the tech stack and more into clean
+     JSON and a readable report.</p>
+
+  <div class="cta-row">
+    <a class="btn primary" href="https://github.com/MSreeGaneshNaik/web-scraper">★ View on GitHub</a>
+    <a class="btn ghost" href="#run">▶ Run it locally</a>
+  </div>
+  <p class="note">This is a live UI preview. The scraper runs as a local Flask server — the code and one-line setup are below.</p>
+
+  <!-- Mock of the real app UI -->
+  <div class="mock">
+    <div class="titlebar"><span class="dot"></span><h3>Web Scraper</h3></div>
+    <div class="searchrow">
+      <input type="text" value="https://example.com" aria-label="URL to scrape">
+      <button class="go">Scrape</button>
+    </div>
+    <div class="opts">
+      <label>Max pages <b>&nbsp;50</b></label>
+      <label><input type="checkbox" checked disabled> Crawl site</label>
+      <label><input type="checkbox" disabled> Ignore robots.txt</label>
+      <label><input type="checkbox" disabled> Render JS (browser)</label>
+      <label><input type="checkbox" disabled> Screenshots</label>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">50</div><div class="l">Pages</div></div>
+      <div class="stat"><div class="n">1,284</div><div class="l">Links</div></div>
+      <div class="stat"><div class="n">312</div><div class="l">Images</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">Emails</div></div>
+    </div>
+    <p class="hint">Sample results — spin up the server locally to scrape real sites and download the JSON, report & contacts CSV.</p>
+  </div>
+
+  <!-- Features -->
+  <h2>What it extracts</h2>
+  <p class="sub">Per page, plus site-wide intelligence — all in one crawl.</p>
+  <div class="grid">
+    <div class="feat"><div class="ic">📝</div><h4>Content</h4><p>Title, meta tags, all headings, paragraph text, list items & full word count.</p></div>
+    <div class="feat"><div class="ic">🔗</div><h4>Links & images</h4><p>Every link (internal/external) with anchor text, plus every image with alt & title.</p></div>
+    <div class="feat"><div class="ic">📊</div><h4>Tables & forms</h4><p>Tables as rows of cells, and forms with action, method & fields (incl. hidden values).</p></div>
+    <div class="feat"><div class="ic">📇</div><h4>Contacts</h4><p>Emails, phone numbers & social profiles — exported to a tidy contacts CSV.</p></div>
+    <div class="feat"><div class="ic">🛠️</div><h4>Tech fingerprint</h4><p>Detects WordPress, React, Shopify, jQuery, Cloudflare and more.</p></div>
+    <div class="feat"><div class="ic">🗺️</div><h4>Sitemaps & robots</h4><p>Reads robots.txt + sitemap index to find pages that aren't linked anywhere.</p></div>
+    <div class="feat"><div class="ic">👻</div><h4>Hidden extras</h4><p>HTML comments, data-* attributes, hreflang, RSS/Atom feeds, favicon & manifest.</p></div>
+    <div class="feat"><div class="ic">✨</div><h4>Deep scraping</h4><p>Opt-in: render JS with a headless browser, capture API calls, take screenshots & read PDFs/Word.</p></div>
+  </div>
+
+  <!-- Run locally -->
+  <h2 id="run">Run it in 30 seconds</h2>
+  <p class="sub">It's a small Flask app — clone, install, run.</p>
+<pre><span class="c"># clone & enter</span>
+git clone https://github.com/MSreeGaneshNaik/web-scraper.git
+cd web-scraper
+
+<span class="c"># install & launch</span>
+pip install -r requirements.txt
+python app.py
+
+<span class="c"># then open</span>
+http://127.0.0.1:8000</pre>
+
+  <footer>
+    Built with Python &amp; Flask · <a href="https://github.com/MSreeGaneshNaik/web-scraper">Source on GitHub</a><br>
+    Hosted on GitHub Pages as a project showcase — the crawler itself runs on your own machine.
+  </footer>
+
+</div>
+</body>
+</html>
