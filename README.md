@@ -3,6 +3,14 @@
 > ⚡ Give it a website URL and it crawls the whole site (following internal links,
 up to a page limit) and scrapes as much as it can from every page.
 
+### 🌐 Live Demo
+
+**Showcase page → https://msreeganeshnaik.github.io/web-scraper/**
+
+> ℹ️ The scraper is a **Flask** app, so the crawler itself runs on your own machine.
+> The GitHub Pages link above is a showcase of the tool and its UI — follow the
+> [setup](#️-setup) steps below to run it live locally.
+
 It writes two outputs:
 
 - 📦 **`output.json`** — structured, machine-readable data of everything found
